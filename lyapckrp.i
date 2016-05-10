@@ -52,7 +52,8 @@
 /* Revision: 1.38    BY: Mamata Samant      DATE: 10/27/03   ECO: *P17F* */
 /* Revision: 1.40    BY: Shilpa Athalye     DATE: 01/19/04   ECO: *P1CW* */
 /* Revision: 1.42    BY: Jignesh Rachh      DATE: 02/01/05   ECO: *P362* */
-/* $Revision: 1.42.1.1 $      BY: Dilip Manawat      DATE: 10/04/06   ECO: *P585* */
+/* Revision: 1.42.1.1       BY: Dilip Manawat      DATE: 10/04/06   ECO: *P585* */
+/* $Revision: 1.43 $ BY: Aurimas Blažys      DATE: 09/04/16   ECO: *YF05* */
 /*-Revision end---------------------------------------------------------------*/
 
 
@@ -108,8 +109,39 @@ define variable l_rnd_amt  as   decimal format "-9.99" no-undo.
 define variable ico_acct as character no-undo.
 define variable ico_sub as character no-undo.
 define variable ico_cc as character no-undo.
+define variable new_ap_ckfrm as character no-undo.
+define variable equal_ap_ckfrm as character no-undo.
+define variable new_ap_vend as character no-undo.
+define variable new_buyer as character no-undo.
+define variable new_ap_effdate as date no-undo.
+define variable new_ap_curr as character no-undo.
+define variable new_ap_acct as character no-undo.
+define variable new_ap_sub as character no-undo.
+define variable new_ap_cc as character no-undo.
+define variable new_ap_rmk as character no-undo.
+define variable old_base_disp_amt as decimal no-undo.
+define variable total_YH_bank as decimal no-undo.
+define variable accum_YH_bank as decimal no-undo.
+define variable total_other_bank as decimal no-undo.
+define variable accum_other_bank as decimal no-undo.
+define variable total_other_bank_one_supplier as decimal no-undo.
+define variable total_YH_bank_one_supplier as decimal no-undo.
 
-{&APCKRP-I-TAG6}
+define variable l_round_acct  like glt_acct  no-undo.
+define variable l_round_sub   like glt_sub   no-undo.
+define variable l_round_cc    like glt_cc    no-undo.
+
+/*YF05{&APCKRP-I-TAG6}YF05*/
+
+/*YF05*/
+
+form
+   invoice
+   base_ckd_amt format "->>,>>>,>>>,>>9.99" label "AP Amount"
+with no-box down frame d width 132.
+
+/*YF05*/
+
 {&APCKRP-I-TAG7}
 
 /* READ APC_CTRL TO GET APC_USE_DRFT VALUE */
@@ -189,7 +221,7 @@ then do:
                {pxmsg.i &MSGNUM=mc-error-number &ERRORLEVEL=2}
             end.
 
-         end.
+         end.		 
          base_amt = base_amt - base_ckd_amt.
       end.
    end.
@@ -199,23 +231,23 @@ then do:
    then
       base_amt   = ap_base_amt.
    else base_amt = ap_amt.
-
+   
    /* IF CK ENTERED AND VOIDED, DISPLAY 0 AT CHECK AMT AND BATCH TOT */
    /* ELSE IF ONLY VOIDED THIS PERIOD, DISPLAY AS NEGATIVE */
    if ck_voideff >= effdate and ck_voideff <= effdate1 and
       ck_voiddate >= apdate and ck_voiddate <= apdate1
       and ck_voiddate <> ? and ck_voideff <> ?
-   then do:
+   then do:		
       if ap_date >= apdate and ap_date <= apdate1
          and ap_effdate >= effdate and ap_effdate <= effdate1 then
          base_disp_amt = 0.
       else
-         base_disp_amt = base_amt. /*NEGATIVE NUMBER*/
+         base_disp_amt = base_amt. /*NEGATIVE NUMBER*/	
    end.
    else
       base_disp_amt = - base_amt. /*POSITIVE NUMBER*/
 
-   {&APCKRP-I-TAG9}
+   {&APCKRP-I-TAG9}   
    accumulate base_disp_amt (total by {&sort1}).
 
    if sort_by_vend and first-of({&sort1}) then do with frame b1:
@@ -236,7 +268,7 @@ then do:
       else
          name = "".
 
-      display ap_vend name with frame b1 side-labels.
+      /* YF05 display ap_vend name with frame b1 side-labels. YF05 */
    end.
 
    if sort_by_vend  = no and
@@ -308,11 +340,44 @@ then do:
         input ap_exru_seq,
         output exch_line_1,
         output exch_line_2)"}
-   {&APCKRP-I-TAG1}
-
+   /*{&APCKRP-I-TAG1}*/
+   define variable base_ckd_WT like ap_amt format "->>,>>>,>>>,>>9.99".
+	define buffer ckddetWT for ckd_det.
+	
+	new_ap_ckfrm = ap_ckfrm.
+	new_ap_vend = ap_vend.
+	new_ap_effdate = ap_effdate.
+	new_ap_curr = ap_curr.
+	new_ap_acct = ap_acct.
+	new_ap_sub = ap_sub.
+	new_ap_cc = ap_cc.
+	new_ap_rmk = ap_rmk.
+	new_buyer = vd_buyer.
+	
+	form
+	   ck_bank
+	   ck_nbr format "99999999"
+	   new_ap_ckfrm 
+	   new_ap_vend
+	   name
+	   new_ap_effdate
+	   new_ap_curr
+	   base_disp_amt label "Cash Amount"
+	   invoice
+	   base_ckd_amt label "AP Amount"
+	with frame c width 150.
+	
+	form 
+			new_buyer label "Vadibininkas"
+			new_ap_vend 
+			name 
+			total_YH_bank_one_supplier 
+			total_other_bank_one_supplier
+	with frame phead1 width 130 no-labels.
+	
    /* SET EXTERNAL LABELS */
    setFrameLabels(frame c:handle).
-   {&APCKRP-I-TAG2}
+   /*{&APCKRP-I-TAG2}
 
    {&APCKRP-I-TAG10}
    display
@@ -343,17 +408,26 @@ then do:
          or ckstatus = "void"
          then down 1.
    end.
-   {&APCKRP-I-TAG3}
-
-   if ap_ex_rate <> 1 or ap_ex_rate2 <> 1 then do:
-      if exch_line_1 <> "" then do:
-         put exch_line_1 at 71.
-      end.
-      if exch_line_2 <> "" then do:
-         put exch_line_2 at 71.
-      end.
-      put skip(1).
-   end.
+   {&APCKRP-I-TAG3}*/
+   
+   /*display
+	   string(ck_bank, "X(2)") @ ck_bank
+	   ck_nbr format "99999999"
+	   ap_ckfrm format "x(2)" column-label "PM"
+	   ap_vend
+	   name
+	   ap_effdate
+	   ap_curr
+	   base_disp_amt label "Cash Amount"
+	with frame c width 132.
+	down 1 with frame c.
+	display
+	   (ap_acct + "/" + ap_sub + "/" + ap_cc) @ name
+	with frame c.
+	if ap_rmk <> "" then do:
+	   down 1 with frame c.
+	   display ap_rmk @ name with frame c.
+	end.*/
 
 
    if gltrans then do:
@@ -409,21 +483,21 @@ then do:
       end.
    end.
 
-   /* GET AP DETAIL  */
+   /* GET AP DETAIL*/
    assign
       detail_lines = 0
       tot_gain_amt = 0
       gain_amt     = 0
       l_chk_amt    = 0
       l_rnd_amt    = 0.
-
+ 
    for each ckd_det  where ckd_det.ckd_domain = global_domain and  ckd_ref =
-   ap_ref no-lock
-         by ckd_voucher with frame d width 132
+   ap_ref no-lock 
+         by ckd_voucher with frame c width 132
          no-box:
 
       /* SET EXTERNAL LABELS */
-      setFrameLabels(frame d:handle).
+      setFrameLabels(frame d:handle).	 
 
       find vo_mstr  where vo_mstr.vo_domain = global_domain and  vo_ref =
       ckd_voucher no-lock no-error.
@@ -492,9 +566,8 @@ then do:
 
          /* CONVERT FROM FOREIGN TO BASE CURRENCY */
          {gprunp.i "mcpl" "p" "mc-curr-conv"
-            "(input ck_curr,
-              input base_curr,
-              input ck_ex_rate,
+            "(input ck_c1 = "Tiekejo kodas".
+	lnt_ant1 = "Tiekejo kodas". input ck_ex_rate,
               input ck_ex_rate2,
               input base_ckd_amt,
               input true, /* ROUND */
@@ -909,7 +982,7 @@ then do:
                order = if available vpo_det then vpo_po else "".
          end.
 
-         {&APCKRP-I-TAG4}
+         /*{&APCKRP-I-TAG4}
          {&APCKRP-I-TAG17}
          display
             apmstr.ap_entity
@@ -925,15 +998,190 @@ then do:
             base_disc format "->>>>>>>>>>9.99".
          {&APCKRP-I-TAG18}
          down 1.
-         {&APCKRP-I-TAG5}
+		 {&APCKRP-I-TAG5}*/
+		 
+		 base_ckd_WT = 0.
+		if can-find(first wtx_mstr  where wtx_mstr.wtx_domain = global_domain and
+		wtx_addr = ap_mstr.ap_vend and
+				   wtx_ref = ckd_voucher and
+				   wtx_check = ap_mstr.ap_ref and wtx_acct = ckd_acct and
+				   wtx_sub = ckd_sub and
+				   wtx_cc = ckd_cc) = no then do:
+		   for each ckddetWT  where ckddetWT.ckd_domain = global_domain and
+		   ckddetWT.ckd_voucher = ckd_det.ckd_voucher no-lock:
+			  if can-find(first wtx_mstr  where wtx_mstr.wtx_domain = global_domain and
+			   wtx_addr = ap_mstr.ap_vend and
+						wtx_ref = ckd_voucher and
+						wtx_check = ap_mstr.ap_ref and wtx_acct = ckd_acct and
+						wtx_sub = ckd_sub and
+						wtx_cc = ckd_cc) = yes then
+				 base_ckd_WT = base_ckd_WT + ckddetWT.ckd_amt.
+		   end.
+
+		   /*display
+			  invoice format "x(20)"
+			  base_ckd_amt label "AP Amount"
+		   with frame c.
+		   down 1 with frame c.*/
+		   
+		   
+		   
+		   if base_disp_amt <> old_base_disp_amt then do:
+			   display
+				   string(ck_bank, "X(2)") @ ck_bank
+				   ck_nbr format "99999999"
+				   ckd_type @ new_ap_ckfrm  format "x(2)" column-label "T"
+				   new_ap_vend 	column-label "Tiekejas"
+				   name		column-label "Pav. saskaita"
+				   new_ap_effdate	column-label "Gal.data"
+				   new_ap_curr   column-label "Val"   format "X(4)"
+				   base_disp_amt label "Cash Amount"
+				   invoice format "x(20)"
+				  base_ckd_amt label "AP Amount"
+				with frame c width 132.
+				down 1 with frame c.
+				display
+				   (new_ap_cc) @ name
+				with frame c.
+				if new_ap_rmk <> "" then do:
+				   down 1 with frame c.
+				   display new_ap_rmk @ name with frame c.
+				end.
+				if ckd_type = "U" then do:
+					equal_ap_ckfrm = ckd_type.
+				end.
+			end.
+			if base_disp_amt = old_base_disp_amt then do:
+				display
+				   string(ck_bank, "X(2)") @ ck_bank
+				   ck_nbr format "99999999"
+				   ckd_type @ new_ap_ckfrm  format "x(2)" column-label "T"
+				   new_ap_vend 	column-label "Tiekejas"				  
+				   new_ap_effdate	column-label "Gal.data"
+				   new_ap_curr   column-label "Val"   format "X(4)"
+				   invoice format "x(20)"
+				  base_ckd_amt label "AP Amount"
+				with frame c width 132.
+				down 1 with frame c.
+				if new_ap_rmk <> "" then do:
+				   down 1 with frame c.
+				   display new_ap_rmk @ name with frame c.
+				end.
+				if ckd_type = "U" then do:
+					equal_ap_ckfrm = ckd_type.
+				end.			
+			end.
+			
+			old_base_disp_amt = base_disp_amt.
+
+		   if ckd_type = "U" then do for bapmstr:
+			  applied = 0.
+			  /* LOOK IF APPLIED CKD EXIST WITH THIS CHECK */
+			  for each bapmstr
+				 where bapmstr.ap_domain        = global_domain 
+				 and   bapmstr.ap_unapplied_ref = ap_mstr.ap_ref
+			  no-lock:
+				 for each bckddet
+					where bckddet.ckd_domain        = global_domain 
+					and   bckddet.ckd_ref           = bapmstr.ap_ref
+					and   bckddet.ckd_unapplied_ref = ckd_det.ckd_unapplied_ref
+					and   bckddet.ckd_type          = "A"
+				 no-lock:
+					applied =  bckddet.ckd_amt.
+					find first vpo_det 
+					   where vpo_domain = global_domain 
+					   and   vpo_ref    = bckddet.ckd_voucher
+					no-lock no-error.
+					order = if available vpo_det then vpo_po else "".
+					find vo_mstr
+					   where vo_domain = global_domain
+					   and   vo_ref    = bckddet.ckd_voucher
+					no-lock no-error.
+					invoice = if available vo_mstr then vo_invoice else "".    
+
+					if ap_mstr.ap_curr <> base_curr
+					then do:
+					   {gprunp.i "mcpl" "p" "mc-curr-conv"
+								 "(input  ap_mstr.ap_curr,
+								   input  base_curr,
+								   input  ap_mstr.ap_ex_rate,
+								   input  ap_mstr.ap_ex_rate2,
+								   input  applied,
+								   input  true,
+								   output applied,
+								   output mc-error-number)" }
+
+					   if mc-error-number <> 0 then do:
+						  {pxmsg.i &MSGNUM=mc-error-number &ERRORLEVEL=2}
+					   end. /* IF mc-error-number <> 0 */
+					end. /* IF ap_mstr.ap_curr <> base_curr */				
+					
+					if base_disp_amt <> old_base_disp_amt then do:
+					   display
+						   string(ck_bank, "X(2)") @ ck_bank
+						   ck_nbr format "99999999"
+						   bckddet.ckd_type @ new_ap_ckfrm  format "x(2)" column-label "T"
+						   new_ap_vend 	column-label "Tiekejas"
+						   name			column-label "Pav. saskaita"
+						   new_ap_effdate	column-label "Gal.data"
+						   new_ap_curr   column-label "Val"  format "X(4)"
+						   base_disp_amt label "Cash Amount"
+						   invoice format "x(20)"
+						  bckddet.ckd_amt  @ base_ckd_amt label "AP Amount"
+						with frame c width 132.
+						down 1 with frame c.
+						display
+						   (new_ap_cc) @ name
+						with frame c.
+						if new_ap_rmk <> "" then do:
+						   down 1 with frame c.
+						   display new_ap_rmk @ name with frame c.
+						end.
+						if ckd_type = "U" then do:
+							equal_ap_ckfrm = bckddet.ckd_type.
+						end.
+					end.
+					if base_disp_amt = old_base_disp_amt then do:
+						display
+						   string(ck_bank, "X(2)") @ ck_bank
+						   ck_nbr format "99999999"
+						   bckddet.ckd_type @ new_ap_ckfrm  format "x(2)" column-label "T"
+						   new_ap_vend 	column-label "Tiekejas"				  
+						   new_ap_effdate	column-label "Gal.data"
+						   new_ap_curr   column-label "Val" format "X(4)"
+						   invoice format "x(20)"
+						  bckddet.ckd_amt  @ base_ckd_amt label "AP Amount"
+						with frame c width 132.
+						down 1 with frame c.
+						if new_ap_rmk <> "" then do:
+						   down 1 with frame c.
+						   display new_ap_rmk @ name with frame c.
+						end.
+						if ckd_type = "U" then do:
+							equal_ap_ckfrm = bckddet.ckd_type.
+						end.
+					end.
+					
+					old_base_disp_amt = base_disp_amt.
+					
+					message ckd_voucher.
+
+					/*display
+					   bckddet.ckd_voucher @ ckd_det.ckd_voucher
+					with frame d.
+					down 1 with frame d.*/
+				 end.   /* APPLIED CHECK */
+			  end. /* FOR EACH bapmstr */
+		   end.
+		end.
 
          /* Multiple PO section -- Begin */
          if available vo_mstr then do:
             find next vpo_det  where vpo_det.vpo_domain = global_domain and
             vpo_ref = vo_ref no-lock no-error.
             do while available vpo_det:
-               display vpo_po @ order with frame d.
-               down 1 with frame d.
+               /*display with frame d.
+               down 1 with frame d.*/
                find next vpo_det  where vpo_det.vpo_domain = global_domain and
                vpo_ref = vo_ref
                   no-lock no-error.
@@ -944,9 +1192,27 @@ then do:
          detail_lines = detail_lines + 1.
       end. /* IF SUMMARY = NO */
    end. /* FOR EACH CKD_DET */
+   
+   
 
    accumulate (accum total (base_disc)) (total by {&sort1}).
    accumulate (accum total (base_ckd_amt)) (total by {&sort1}).
+   if ck_bank = "yh" then do:
+		accum_YH_bank = base_disp_amt.
+		/*message accum_YH_bank.
+		message total_YH_bank.*/
+		total_YH_bank = total_YH_bank + accum_YH_bank.
+		total_YH_bank_one_supplier = total_YH_bank_one_supplier + accum_YH_bank.
+		/*message total_YH_bank.*/
+   end.
+   if ck_bank <> "yh" then do:
+		accum_other_bank = base_disp_amt.
+		/*message accum_other_bank.
+		message total_other_bank.*/
+		total_other_bank = total_other_bank + accum_other_bank.
+		total_other_bank_one_supplier = total_other_bank_one_supplier + accum_other_bank.
+		/*message total_other_bank.*/
+   end.
 
    /* CALCULATE GAIN/LOSS AMOUNT */
    if gltrans and tot_gain_amt <> 0 then do:
@@ -1068,33 +1334,84 @@ then do:
 
             display
                getTermLabel("ROUNDING_ERROR",14) @ invoice format "x(14)"
-               l_rnd_amt                         @ ckd_acct
             with frame d.
 
          end. /* IF l_rnd_amt <> ... */
 
       end. /* IF (bank_curr <> ... */
 
-      underline base_ckd_amt base_disc.
-      display
-         getTermLabelRtColon("CHECK_TOTALS",10) @ rmks format "x(10)"
-         accum total (base_ckd_amt) format "->>>>>,>>>,>>9.99"
-         @ base_ckd_amt
-         accum total (base_disc) format "->>>>>>>>>>9.99"
-         @ base_disc with frame d.
+      /*underline base_ckd_amt base_disc.
+      display with frame d.*/
 
       {&APCKRP-I-TAG20}
    end.
    {&APCKRP-I-TAG21}
 end. /* IF vdfound = YES */
 
-{&APCKRP-I-TAG26}
+/*{&APCKRP-I-TAG26}*/
+
+if  gltrans 
+   and l_rnd_amt <> 0 
+then do:
+   {gprunp.i "glacdfpl" "p" "getDefaultAcct"
+      "(input 'CU',
+        input 'ROUND-ACCOUNT',
+        input ap_mstr.ap_curr,
+        input '',
+        input '',
+        input '',
+        input '',
+        input '',
+        output l_round_acct,
+        output l_round_sub,
+        output l_round_cc)"}
+
+   for first ac_mstr
+      fields(ac_code ac_desc)
+      where ac_domain = global_domain
+      and   ac_code   = l_round_acct
+      no-lock:
+   end. /* FOR FIRST ac_mstr */
+
+   {gpnextln.i &ref=ap_mstr.ap_vend &line=return_int}
+   create gltw_wkfl.
+   assign
+      gltw_domain  = global_domain
+      gltw_entity  = ap_mstr.ap_entity
+      gltw_acct    = l_round_acct 
+      gltw_sub     = l_round_sub  
+      gltw_cc      = l_round_cc   
+      gltw_ref     = ap_mstr.ap_vend
+      gltw_line    = return_int
+      gltw_date    = ap_mstr.ap_date
+      gltw_effdate = ap_mstr.ap_effdate
+      gltw_userid  = mfguser
+      gltw_desc    = "Rounding Difference"
+      gltw_amt     = l_rnd_amt.
+
+   {gpnextln.i &ref=ap_mstr.ap_vend &line=return_int}
+   create gltw_wkfl.
+   assign
+      gltw_domain  = global_domain
+      gltw_entity  = ap_mstr.ap_entity
+      gltw_acct    = ap_mstr.ap_acct
+      gltw_sub     = ap_mstr.ap_sub
+      gltw_cc      = ap_mstr.ap_cc
+      gltw_ref     = ap_mstr.ap_vend
+      gltw_line    = return_int
+      gltw_date    = ap_mstr.ap_date
+      gltw_effdate = ap_mstr.ap_effdate
+      gltw_userid  = mfguser
+      gltw_desc    = "Rounding Difference"
+      gltw_amt     = - l_rnd_amt.
+
+end. /*IF  gltrans*/
 
 /* Can't use display @ from here on because of two frames */
 if last-of({&sort1}) then do:
    if batch_lines > 0 then do:
-      {&APCKRP-I-TAG22}
-      if summary = no then
+      /*{&APCKRP-I-TAG22}*/
+      /*if summary = no then
          put
             fill("-",17) format "x(17)" to 98
             fill("-",15) format "x(15)" to 114.
@@ -1122,52 +1439,158 @@ if last-of({&sort1}) then do:
       put accum total by {&sort1} (base_disp_amt)
          format "->>>>>,>>>,>>9.99"
          to 132.
-
-      {&APCKRP-I-TAG23}
+	*/
+	if summary = no then do:
+		
+		if summary = no then
+		  put
+			 fill("-",51) format "x(51)" to 132.
+			 
+	   put  {gplblfmt.i
+		  &FUNC=getTermLabel(""Pinigu_Persiuntimas"",25)
+		  &CONCAT=':'
+		  } at 55. 
+	   if summary = no then
+			put
+				total_YH_bank_one_supplier format "->>>>>,>>>,>>9.99" to 132.
+		
+		if summary = no then
+		  put
+			 fill("-",51) format "x(51)" to 132.
+			 
+	   put  {gplblfmt.i
+		  &FUNC=getTermLabel(""Banko_Persiuntimas"",25)
+		  &CONCAT=':'
+		  } at 56. 
+	   if summary = no then
+			put
+				total_other_bank_one_supplier format "->>>>>,>>>,>>9.99" to 132
+				skip(1).
+      /*{&APCKRP-I-TAG23}*/	
+	end.
+	if summary = yes then		
+		put 
+			new_buyer to 10
+			new_ap_vend  to 20
+			name  to 55
+			total_YH_bank_one_supplier format "->>>>>,>>>,>>9.99" to 75
+			total_other_bank_one_supplier format "->>>>>,>>>,>>9.99" to 110.
+	total_YH_bank_one_supplier = 0.
+	total_other_bank_one_supplier = 0.
       assign
          l_rep_total = yes.
    end.
    assign
-      l_header_disp = yes.
+      l_header_disp = no.
 
 end. /* Last-of ap_batch or ap_vend */
 
 if last ({&sort1})   and
    l_rep_total = yes
 then do:
-   {&APCKRP-I-TAG24}
-   if summary = no then
-      put
-         fill("-",17) format "x(17)" to 98
-         fill("-",15) format "x(15)" to 114.
-   put "----------------" to 132 skip.
-   if base_rpt = "" then
-      put base_curr at 53.
-   else put base_rpt at 53.
-
-   put  {gplblfmt.i
-      &FUNC=getTermLabel(""REPORT_TOTALS"",25)
-      &CONCAT=':'
-      } at 58.
-   if summary = no then
-      put
-         accum total (accum total (base_ckd_amt))
-         format "->>>>>,>>>,>>9.99"
-         to 98
-         accum total (accum total (base_disc))
-         format "->>>>>>>>>>9.99"
-         to 114.
-   put accum total (base_disp_amt)
-      format "->>>>>,>>>,>>9.99"
-      to 132
-      skip.
-
-   {&APCKRP-I-TAG25}
+   /*{&APCKRP-I-TAG24}*/
+   if summary = no then do:
+	   if summary = no then
+		  put
+			 fill("-",17) format "x(17)" to 98
+			 fill("-",15) format "x(15)" to 114.
+	   put "----------------" to 132 skip.
+	   if base_rpt = "" then
+		  put base_curr at 53.
+	   else put base_rpt at 53.
+	   
+	   put  {gplblfmt.i
+		  &FUNC=getTermLabel(""REPORT_TOTALS"",25)
+		  &CONCAT=':'
+		  } at 58. 
+	   if summary = no then
+		  put
+			 accum total (accum total (base_ckd_amt))
+			 format "->>>>>,>>>,>>9.99"
+			 to 98
+			 accum total (accum total (base_disc))
+			 format "->>>>>>>>>>9.99"
+			 to 114.
+	   put accum total (base_disp_amt)
+		  format "->>>>>,>>>,>>9.99"
+		  to 132
+		  skip.
+	end.
+	if summary = yes then do:
+	   put 
+			skip(1)
+			"----------------" to 132 skip.
+	   if base_rpt = "" then
+		  put base_curr at 53.
+	   else put base_rpt at 53.
+	   
+	   put  {gplblfmt.i
+		  &FUNC=getTermLabel(""REPORT_TOTALS"",25)
+		  &CONCAT=':'
+		  } at 58. 
+	   put accum total (base_disp_amt)
+		  format "->>>>>,>>>,>>9.99"
+		  to 132
+		  skip.
+	end.
+   /*{&APCKRP-I-TAG25}*/
    /* WITHOUT SKIP, A PUT FOR THE LAST LINE OF A PAGE */
    /* CAUSES THE FIRST HEADING LINE OF THE NEXT PAGE  */
    /* TO BE SHIFTED RIGHT BY THE LENGTH OF THE PUT.   */
+   
+   if summary = no then do:   
+	   if summary = no then
+		  put
+			 fill("-",51) format "x(51)" to 132.
+			 
+	   put  {gplblfmt.i
+		  &FUNC=getTermLabel(""Pinigu_Persiuntimas"",25)
+		  &CONCAT=':'
+		  } at 55. 
+	   if summary = no then
+			put
+				total_YH_bank format "->>>>>,>>>,>>9.99" to 132.
+		
+		if summary = no then
+		  put
+			 fill("-",51) format "x(51)" to 132.
+			 
+	   put  {gplblfmt.i
+		  &FUNC=getTermLabel(""Banko_Persiuntimas"",25)
+		  &CONCAT=':'
+		  } at 56. 
+	   if summary = no then
+			put
+				total_other_bank format "->>>>>,>>>,>>9.99" to 132.
+	end.
+	if summary = yes then do:
+		if summary = yes then
+		  put
+			 fill("-",51) format "x(51)" to 132.
+			 
+	   put  {gplblfmt.i
+		  &FUNC=getTermLabel(""Pinigu_Persiuntimas"",25)
+		  &CONCAT=':'
+		  } at 55. 
+	   if summary = yes then
+			put
+				total_YH_bank format "->>>>>,>>>,>>9.99" to 132.
+		
+		if summary = yes then
+		  put
+			 fill("-",51) format "x(51)" to 132.
+			 
+	   put  {gplblfmt.i
+		  &FUNC=getTermLabel(""Banko_Persiuntimas"",25)
+		  &CONCAT=':'
+		  } at 56. 
+	   if summary = yes then
+			put
+				total_other_bank format "->>>>>,>>>,>>9.99" to 132.
+	end.
    assign
       l_rep_total = no.
-
+	  
 end. /* If last ap_batch or ap_vend */
 {mfrpchk.i}
+
